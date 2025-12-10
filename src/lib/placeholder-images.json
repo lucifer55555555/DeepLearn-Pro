@@ -1,0 +1,46 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-home",
+      "description": "Abstract neural network visualization",
+      "imageUrl": "https://picsum.photos/seed/hero1/1200/600",
+      "imageHint": "neural network"
+    },
+    {
+      "id": "course-ml-foundations",
+      "description": "Person working on a laptop with code on screen",
+      "imageUrl": "https://picsum.photos/seed/course1/600/400",
+      "imageHint": "coding laptop"
+    },
+    {
+      "id": "course-dl-fundamentals",
+      "description": "Glowing brain made of circuits",
+      "imageUrl": "https://picsum.photos/seed/course2/600/400",
+      "imageHint": "circuit brain"
+    },
+    {
+      "id": "course-cv-mastery",
+      "description": "Grid of images being processed",
+      "imageUrl": "https://picsum.photos/seed/course3/600/400",
+      "imageHint": "image recognition"
+    },
+    {
+      "id": "course-nlp-expert",
+      "description": "Word cloud or text analysis visualization",
+      "imageUrl": "https://picsum.photos/seed/course4/600/400",
+      "imageHint": "text analysis"
+    },
+    {
+      "id": "project-sentiment-analyzer",
+      "description": "Abstract visualization of positive and negative sentiment faces",
+      "imageUrl": "https://picsum.photos/seed/project1/600/400",
+      "imageHint": "sentiment analysis"
+    },
+    {
+      "id": "project-digit-recognizer",
+      "description": "A grid of handwritten digits",
+      "imageUrl": "https://picsum.photos/seed/project2/600/400",
+      "imageHint": "handwritten digits"
+    }
+  ]
+}
