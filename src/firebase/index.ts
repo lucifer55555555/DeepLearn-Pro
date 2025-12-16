@@ -1,3 +1,5 @@
+export * from "./use-user";
+
 "use client";
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
