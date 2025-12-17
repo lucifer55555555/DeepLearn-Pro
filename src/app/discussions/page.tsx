@@ -1,189 +1,186 @@
 "use client";
+
 export const dynamic = "force-dynamic";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { collection, query, orderBy, serverTimestamp } from "firebase/firestore";
 
-import { collection, serverTimestamp, query, orderBy } from "firebase/firestore";
-
-import { useFirestore, useUser } from "@/firebase";
+import { useUser, useFirestore } from "@/firebase";
 import { useCollection } from "@/firebase/firestore/use-collection";
 import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import {
   Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { formatDistanceToNow } from "date-fns";
 import { MarkdownRenderer } from "@/components/common/markdown-renderer";
+import { formatDistanceToNow } from "date-fns";
+
+/* ========================================================= */
 
 export default function DiscussionsPage() {
-  // ✅ useUser returns { user, loading }
   const { user, loading: isUserLoading } = useUser();
+
   const firestore = useFirestore();
   const { toast } = useToast();
 
+  /* ---------- IMPORTANT: block Firebase during build ---------- */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  /* ---------- Form State ---------- */
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  /* ✅ SAFE: React useMemo */
-  const discussionsRef = useMemo(() => {
-    if (!firestore) return null;
-    return collection(firestore, "discussions");
-  }, [firestore]);
-
+  /* ---------- Firestore Query (CLIENT ONLY) ---------- */
   const discussionsQuery = useMemo(() => {
-    if (!discussionsRef) return null;
-    return query(discussionsRef, orderBy("createdAt", "desc"));
-  }, [discussionsRef]);
+    if (!mounted || !firestore) return null;
 
-  const { data: posts, isLoading: isLoadingPosts } =
-    useCollection(discussionsQuery);
+    return query(
+      collection(firestore, "discussions"),
+      orderBy("createdAt", "desc")
+    );
+  }, [mounted, firestore]);
 
+  /* ---------- SAFE HOOK CALL ---------- */
+  const collectionState =
+    mounted && discussionsQuery
+      ? useCollection(discussionsQuery)
+      : { data: null, isLoading: true };
+
+  const { data: posts, isLoading } = collectionState;
+
+  /* ---------- Submit Handler ---------- */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!user || !discussionsRef) {
-      toast({
-        variant: "destructive",
-        title: "Not logged in",
-        description: "You must be logged in to post.",
-      });
-      return;
-    }
+    if (!user || !firestore) return;
 
     setIsSubmitting(true);
-
-    addDocumentNonBlocking(discussionsRef, {
-      userId: user.uid,
-      userName: user.displayName || user.email,
-      title,
-      content,
-      createdAt: serverTimestamp(),
-    })
-      .then(() => {
-        setTitle("");
-        setContent("");
-        toast({
-          title: "Post submitted!",
-          description: "Your post has been added to the discussion.",
-        });
-        setIsSubmitting(false);
-      })
-      .catch((error: any) => {
-        toast({
-          variant: "destructive",
-          title: "Submission failed",
-          description: error.message || "Could not submit your post.",
-        });
-        setIsSubmitting(false);
+    try {
+      await addDocumentNonBlocking(collection(firestore, "discussions"), {
+        title,
+        content,
+        userId: user.uid,
+        userName: user.displayName || user.email,
+        createdAt: serverTimestamp(),
       });
+
+      setTitle("");
+      setContent("");
+      toast({ title: "Post added successfully!" });
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: err.message,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
+  /* ---------- BUILD / LOAD SAFE ---------- */
+  if (!mounted || isUserLoading) {
+    return (
+      <div className="flex justify-center items-center h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  /* ======================= UI ======================= */
   return (
     <div className="flex flex-col gap-8">
+      {/* ---------- Header ---------- */}
       <div className="text-center">
-        <h1 className="font-headline text-4xl md:text-5xl font-bold">
-          Discussions
-        </h1>
-        <p className="text-muted-foreground mt-3 max-w-2xl mx-auto">
-          Share your project solutions, ask questions, and learn from the
-          community.
+        <h1 className="font-headline text-4xl font-bold">Discussions</h1>
+        <p className="text-muted-foreground mt-2">
+          Share solutions, ask questions, and learn together
         </p>
       </div>
 
-      {isUserLoading ? (
-        <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-      ) : user ? (
+      {/* ---------- Create Post ---------- */}
+      {user ? (
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline">Create a New Post</CardTitle>
-            <CardDescription>
-              Share your solution or ask a question.
-            </CardDescription>
+            <CardTitle>Create a Post</CardTitle>
+            <CardDescription>Share your thoughts or solutions</CardDescription>
           </CardHeader>
+
           <form onSubmit={handleSubmit}>
             <CardContent className="grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="title">Title</Label>
+                <Label>Title</Label>
                 <Input
-                  id="title"
-                  placeholder="e.g., My Sentiment Analyzer Solution"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
                 />
               </div>
+
               <div className="grid gap-2">
-                <Label htmlFor="content">Your Post / Solution Code</Label>
+                <Label>Content</Label>
                 <Textarea
-                  id="content"
-                  placeholder="Share your code, thoughts, and questions here. Markdown supported."
+                  rows={5}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   required
-                  rows={6}
                 />
               </div>
             </CardContent>
+
             <CardFooter>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button disabled={isSubmitting}>
                 {isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Submit Post
+                Post
               </Button>
             </CardFooter>
           </form>
         </Card>
       ) : (
-        <Card className="text-center p-8">
-          <CardTitle>Join the Discussion</CardTitle>
-          <CardDescription className="mt-2 mb-4">
-            You need to be logged in to create posts and join the conversation.
-          </CardDescription>
-          <Button asChild>
-            <Link href="/login">Login to Post</Link>
+        <Card className="text-center p-6">
+          <CardTitle>Login Required</CardTitle>
+          <Button asChild className="mt-4">
+            <Link href="/login">Login</Link>
           </Button>
         </Card>
       )}
 
-      <div className="flex flex-col gap-6">
-        <h2 className="font-headline text-2xl">Recent Posts</h2>
-
-        {isLoadingPosts ? (
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-            <p className="text-muted-foreground">Loading posts...</p>
-          </div>
+      {/* ---------- Posts ---------- */}
+      <div className="flex flex-col gap-4">
+        {isLoading ? (
+          <Loader2 className="mx-auto animate-spin" />
         ) : posts && posts.length > 0 ? (
-          posts.map((post) => (
+          posts.map((post: any) => (
             <Card key={post.id}>
               <CardHeader>
-                <CardTitle className="font-headline text-xl">
-                  {post.title}
-                </CardTitle>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
+                <CardTitle>{post.title}</CardTitle>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Avatar className="h-6 w-6">
                     <AvatarFallback>
-                      {post.userName?.charAt(0)?.toUpperCase() || "U"}
+                      {post.userName?.[0]?.toUpperCase() || "U"}
                     </AvatarFallback>
                   </Avatar>
                   <span>{post.userName}</span>
-                  <span>&middot;</span>
+                  <span>·</span>
                   <span>
                     {post.createdAt?.toDate
                       ? formatDistanceToNow(post.createdAt.toDate(), {
@@ -193,15 +190,14 @@ export default function DiscussionsPage() {
                   </span>
                 </div>
               </CardHeader>
+
               <CardContent>
-                <div className="prose prose-sm prose-invert max-w-none prose-pre:bg-background prose-pre:p-4 prose-pre:rounded-md">
-                  <MarkdownRenderer content={post.content} />
-                </div>
+                <MarkdownRenderer content={post.content} />
               </CardContent>
             </Card>
           ))
         ) : (
-          <p className="text-muted-foreground text-center">
+          <p className="text-center text-muted-foreground">
             No discussions yet. Be the first to post!
           </p>
         )}
